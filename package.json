@@ -1,0 +1,21 @@
+{
+  "name": "my_dev_aws",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amarshaik012/My_dev_aws.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/amarshaik012/My_dev_aws/issues"
+  },
+  "homepage": "https://github.com/amarshaik012/My_dev_aws#readme"
+}
