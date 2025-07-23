@@ -2,12 +2,8 @@ pipeline {
     agent any
     environment {
         AWS_REGION = 'us-east-1'
-        ACCOUNT_ID = '669370114932'
-        ECR_REPO = 'aws_dev'
-        IMAGE_TAG = "latest"
-        DEPLOYMENT_NAME = 'my-app'
-        CONTAINER_NAME = 'aws-dev-hnws4'
-        NAMESPACE = 'default'
+        ECR_REGISTRY = '669370114932.dkr.ecr.us-east-1.amazonaws.com'
+        IMAGE_NAME = 'aws_dev'
     }
     stages {
         stage('Checkout') {
@@ -17,26 +13,35 @@ pipeline {
         }
         stage('Build Docker Image') {
             steps {
-                sh "docker build -t $ECR_REPO:$IMAGE_TAG ."
+                sh 'docker build -t ${IMAGE_NAME}:latest .'
             }
         }
         stage('Login to ECR') {
             steps {
-                sh "aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+                withCredentials([usernamePassword(credentialsId: 'aws-creds', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
+                        export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+                        export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+                    '''
+                }
             }
         }
-        stage('Tag and Push Image to ECR') {
+        stage('Tag and Push Image') {
             steps {
-                sh "docker tag $ECR_REPO:$IMAGE_TAG ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO:$IMAGE_TAG"
-                sh "docker push ${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO:$IMAGE_TAG"
+                sh '''
+                    docker tag ${IMAGE_NAME}:latest ${ECR_REGISTRY}/${IMAGE_NAME}:latest
+                    docker push ${ECR_REGISTRY}/${IMAGE_NAME}:latest
+                '''
             }
         }
         stage('Deploy to EKS') {
             steps {
-                sh "kubectl set image deployment/$DEPLOYMENT_NAME $CONTAINER_NAME=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/$ECR_REPO:$IMAGE_TAG -n $NAMESPACE"
-                sh "kubectl rollout status deployment/$DEPLOYMENT_NAME -n $NAMESPACE"
+                sh '''
+                    kubectl set image deployment/my-app aws-dev-hnws4=${ECR_REGISTRY}/${IMAGE_NAME}:latest
+                    kubectl rollout status deployment/my-app
+                '''
             }
         }
     }
 }
-
