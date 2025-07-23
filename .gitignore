@@ -1,6 +1,4 @@
-<<<<<<< HEAD
 .terraform/
-=======
-jenkins-key.pem
->>>>>>> b0ef98b (Initial commit with Terraform and React app)
-dev-infra/*.tfstate*
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
