@@ -2,10 +2,11 @@ pipeline {
     agent any
 
     environment {
+        PATH = "/usr/local/bin:$PATH"     // 🔧 Add this line
         AWS_REGION = 'us-east-1'
         ECR_REGISTRY = '669370114932.dkr.ecr.us-east-1.amazonaws.com'
         IMAGE_NAME = 'aws_dev'
-        SLACK_CHANNEL = '#ci-cd' // Optional: name of your Slack channel
+        SLACK_CHANNEL = '#ci-cd'
     }
 
     stages {
