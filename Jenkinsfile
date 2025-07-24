@@ -5,35 +5,34 @@ pipeline {
         AWS_REGION = 'us-east-1'
         AWS_ACCOUNT_ID = '669370114932'
         ECR_REPO_NAME = 'aws_dev'
-        IMAGE_TAG = 'latest'
-        CLUSTER_NAME = 'my-cluster'
-        AWS_CREDENTIALS_ID = 'aws-cred'
         ECR_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
+        IMAGE_TAG = "v1-${BUILD_NUMBER}"
+        CLUSTER_NAME = 'my-cluster'
+        AWS_CREDENTIALS_ID = 'aws-jenkins-creds' // Update with your Jenkins AWS credential ID
     }
 
     stages {
-        stage('Checkout Code') {
+        stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Jaswanth-singamsetty/codeit.git'
+                git branch: 'main', url: 'https://github.com/amarshaik012/My_dev_aws.git'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Docker Build') {
             steps {
                 script {
-                    dockerImage = docker.build("${ECR_URI}:${IMAGE_TAG}")
+                    sh "docker build -t ${ECR_URI}:${IMAGE_TAG} ."
                 }
             }
         }
 
-        stage('Login to ECR') {
+        stage('AWS Auth & ECR Login') {
             steps {
-                script {
-                    withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    script {
                         sh """
-                            aws ecr get-login-password --region ${AWS_REGION} | \
-                            docker login --username AWS --password-stdin ${ECR_URI}
+                            aws configure set default.region ${AWS_REGION}
+                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URI}
                         """
                     }
                 }
@@ -43,36 +42,31 @@ pipeline {
         stage('Push to ECR') {
             steps {
                 script {
-                    dockerImage.push()
+                    sh "docker push ${ECR_URI}:${IMAGE_TAG}"
                 }
             }
         }
 
-        stage('Terraform Apply') {
+        stage('Update K8s Deployment') {
             steps {
-                script {
-                    withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                        sh '''
-                            cd terraform
-                            terraform init
-                            terraform apply -auto-approve
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to EKS') {
-            steps {
-                script {
-                    withAWS(credentials: "${AWS_CREDENTIALS_ID}", region: "${AWS_REGION}") {
-                        sh '''
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    script {
+                        sh """
                             aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-                            kubectl apply -f k8s/deployment.yaml
-                        '''
+                            kubectl set image deployment/aws-dev aws-dev=${ECR_URI}:${IMAGE_TAG} --record
+                        """
                     }
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Deployed successfully: ${ECR_URI}:${IMAGE_TAG}"
+        }
+        failure {
+            echo "❌ Deployment failed"
         }
     }
 }
