@@ -7,7 +7,7 @@ pipeline {
         ECR_REPO_NAME = 'aws_dev'
         IMAGE_TAG = 'latest'
         CLUSTER_NAME = 'my-cluster'
-        AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
+        AWS_CREDENTIALS_ID = 'aws-cred'
         ECR_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
     }
 
