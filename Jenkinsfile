@@ -8,7 +8,7 @@ pipeline {
         ECR_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
         IMAGE_TAG = "v1-${BUILD_NUMBER}"
         CLUSTER_NAME = 'my-cluster'
-        AWS_CREDENTIALS_ID = 'aws-jenkins-creds' // Update with your Jenkins AWS credential ID
+        AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
     }
 
     stages {
@@ -21,19 +21,29 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    sh "docker build -t ${ECR_URI}:${IMAGE_TAG} ."
+                    sh """
+                        docker build -t ${ECR_REPO_NAME}:latest .
+                        docker tag ${ECR_REPO_NAME}:latest ${ECR_URI}:${IMAGE_TAG}
+                    """
                 }
             }
         }
 
-        stage('AWS Auth & ECR Login') {
+        stage('Configure AWS CLI') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     script {
-                        sh """
-                            aws configure set default.region ${AWS_REGION}
-                            aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URI}
-                        """
+                        sh "aws configure set default.region ${AWS_REGION}"
+                    }
+                }
+            }
+        }
+
+        stage('Login to ECR') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    script {
+                        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URI}"
                     }
                 }
             }
