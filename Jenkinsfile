@@ -2,11 +2,10 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'us-east-1'
-        ECR_REGISTRY = '669370114932.dkr.ecr.us-east-1.amazonaws.com'
-        IMAGE_NAME = 'aws_dev'
-        IMAGE_TAG = ''
-        SLACK_WEBHOOK = credentials('slack-webhook')
+        AWS_REGION     = 'us-east-1'
+        ECR_REGISTRY   = '669370114932.dkr.ecr.us-east-1.amazonaws.com'
+        IMAGE_NAME     = 'aws_dev'
+        SLACK_CHANNEL  = '#ci-cd'
     }
 
     stages {
@@ -16,54 +15,56 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
-            steps {
-                sh '''
-                    npm install
-                    npm test || true
-                '''
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
                 script {
-                    env.IMAGE_TAG = "${env.BUILD_NUMBER}-${env.GIT_COMMIT.take(7)}"
-                }
-                sh 'docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .'
-            }
-        }
-
-        stage('Login to ECR') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'aws-jenkins', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-                        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
-                    '''
+                    def shortCommit = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    env.IMAGE_TAG = "${BUILD_NUMBER}-${shortCommit}"
+                    sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
                 }
             }
         }
 
-        stage('Tag and Push Image') {
+        stage('Login to AWS ECR') {
             steps {
-                sh '''
-                    docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                    docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                '''
+                script {
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                }
+            }
+        }
+
+        stage('Tag & Push Docker Image') {
+            steps {
+                script {
+                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                    sh "docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                }
+            }
+        }
+
+        stage('Deploy with Terraform') {
+            steps {
+                dir('terraform') {
+                    script {
+                        sh "terraform init -input=false"
+                        sh "terraform plan -input=false -out=tfplan"
+                        sh "terraform apply -input=false -auto-approve tfplan"
+                    }
+                }
             }
         }
 
         stage('Deploy to EKS') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'aws-jenkins', usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-                        aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-                        kubectl set image deployment/my-app aws-dev-hnws4=${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
-                        kubectl rollout status deployment/my-app
-                    '''
+                script {
+                    // Update kubeconfig with your EKS cluster name
+                    sh "aws eks update-kubeconfig --region ${AWS_REGION} --name my-cluster"
+
+                    // Replace <IMAGE_URI> with actual image URI in manifest
+                    sh """
+                    sed -i 's|<IMAGE_URI>|${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}|g' k8s/deployment.yaml
+                    kubectl apply -f k8s/deployment.yaml
+                    """
                 }
             }
         }
@@ -71,18 +72,22 @@ pipeline {
 
     post {
         success {
-            sh """
-                curl -X POST -H 'Content-type: application/json' --data '{
-                    "text": "✅ Build #${BUILD_NUMBER} *succeeded* and deployed image `${IMAGE_TAG}` to EKS."
-                }' $SLACK_WEBHOOK
-            """
+            script {
+                slackSend(
+                    channel: "${SLACK_CHANNEL}",
+                    color: 'good',
+                    message: "✅ Build #${BUILD_NUMBER} succeeded and deployed `${IMAGE_NAME}:${IMAGE_TAG}` to EKS cluster `my-cluster`."
+                )
+            }
         }
         failure {
-            sh """
-                curl -X POST -H 'Content-type: application/json' --data '{
-                    "text": "❌ Build #${BUILD_NUMBER} *failed*. Please check Jenkins logs."
-                }' $SLACK_WEBHOOK
-            """
+            script {
+                slackSend(
+                    channel: "${SLACK_CHANNEL}",
+                    color: 'danger',
+                    message: "❌ Build #${BUILD_NUMBER} failed. Check Jenkins logs for details."
+                )
+            }
         }
     }
 }
