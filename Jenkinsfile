@@ -12,16 +12,17 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
                 git branch: 'main', url: 'https://github.com/amarshaik012/My_dev_aws.git'
             }
         }
 
-        stage('Docker Build') {
+        stage('Build Docker Image') {
             steps {
                 script {
                     sh """
+                        echo "🔧 Building Docker image..."
                         docker build -t ${ECR_REPO_NAME}:latest .
                         docker tag ${ECR_REPO_NAME}:latest ${ECR_URI}:${IMAGE_TAG}
                     """
@@ -31,9 +32,17 @@ pipeline {
 
         stage('Configure AWS CLI') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: "${AWS_CREDENTIALS_ID}"
+                ]]) {
                     script {
-                        sh "aws configure set default.region ${AWS_REGION}"
+                        sh """
+                            echo "⚙️ Configuring AWS CLI..."
+                            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+                            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+                            aws configure set default.region ${AWS_REGION}
+                        """
                     }
                 }
             }
@@ -41,9 +50,16 @@ pipeline {
 
         stage('Login to ECR') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: "${AWS_CREDENTIALS_ID}"
+                ]]) {
                     script {
-                        sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_URI}"
+                        sh """
+                            echo "🔐 Logging in to Amazon ECR..."
+                            aws ecr get-login-password --region ${AWS_REGION} | \
+                            docker login --username AWS --password-stdin ${ECR_URI}
+                        """
                     }
                 }
             }
@@ -52,16 +68,23 @@ pipeline {
         stage('Push to ECR') {
             steps {
                 script {
-                    sh "docker push ${ECR_URI}:${IMAGE_TAG}"
+                    sh """
+                        echo "📦 Pushing Docker image to ECR..."
+                        docker push ${ECR_URI}:${IMAGE_TAG}
+                    """
                 }
             }
         }
 
-        stage('Update K8s Deployment') {
+        stage('Update Kubernetes Deployment') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    credentialsId: "${AWS_CREDENTIALS_ID}"
+                ]]) {
                     script {
                         sh """
+                            echo "📡 Updating Kubernetes deployment..."
                             aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
                             kubectl set image deployment/aws-dev aws-dev=${ECR_URI}:${IMAGE_TAG} --record
                         """
@@ -73,7 +96,7 @@ pipeline {
 
     post {
         success {
-            echo "✅ Deployed successfully: ${ECR_URI}:${IMAGE_TAG}"
+            echo "✅ Successfully deployed: ${ECR_URI}:${IMAGE_TAG}"
         }
         failure {
             echo "❌ Deployment failed"
