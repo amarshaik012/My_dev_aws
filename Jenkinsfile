@@ -2,21 +2,19 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_TAG = "4-${GIT_COMMIT.take(7)}"
-        AWS_REGION = "us-east-1"
-        ECR_REGISTRY = "669370114932.dkr.ecr.us-east-1.amazonaws.com"
-        ECR_REPOSITORY = "aws_dev"
-        SLACK_CHANNEL = "#jenkinbottAPP"
-        SLACK_TOKEN_ID = "slack-token"
-    }
-
-    options {
-        ansiColor('xterm')
+        AWS_REGION = 'us-east-1'
+        IMAGE_NAME = 'my-app'
+        ECR_REPO = '123456789012.dkr.ecr.us-east-1.amazonaws.com/my-app'
+        SLACK_CHANNEL = '#jenkinbottAPP'
+        SLACK_CREDENTIALS_ID = 'slack-webhook-token'  // Set this in Jenkins credentials
+        CLUSTER_NAME = 'my-eks-cluster'
+        K8S_NAMESPACE = 'default'
     }
 
     stages {
-        stage('Checkout') {
+        stage('Clone Repo') {
             steps {
+                echo 'Cloning repository...'
                 checkout scm
             }
         }
@@ -24,34 +22,48 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} ."
+                    echo 'Building Docker image...'
+                    sh 'docker build -t $IMAGE_NAME .'
                 }
             }
         }
 
-        stage('Login to ECR') {
+        stage('Push to ECR') {
             steps {
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    credentialsId: 'aws-creds'
-                ]]) {
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}"
+                script {
+                    echo 'Logging in to ECR...'
+                    sh '''
+                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+                        docker tag $IMAGE_NAME:latest $ECR_REPO:latest
+                        docker push $ECR_REPO:latest
+                    '''
                 }
             }
         }
 
-        stage('Push Image to ECR') {
+        stage('Terraform Apply') {
             steps {
-                sh "docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+                dir('terraform') {
+                    script {
+                        echo 'Running Terraform...'
+                        sh '''
+                            terraform init
+                            terraform apply -auto-approve
+                        '''
+                    }
+                }
             }
         }
 
         stage('Deploy to EKS') {
             steps {
                 script {
-                    sh "sed -i '' 's|<IMAGE>|${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}|' k8s/deployment.yaml"
-                    sh "aws eks update-kubeconfig --region ${AWS_REGION} --name my-cluster"
-                    sh "kubectl apply -f k8s/"
+                    echo 'Updating kubeconfig and deploying to EKS...'
+                    sh '''
+                        aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+                        kubectl set image deployment/my-app-deployment my-app-container=$ECR_REPO:latest -n $K8S_NAMESPACE
+                        kubectl rollout status deployment/my-app-deployment -n $K8S_NAMESPACE
+                    '''
                 }
             }
         }
@@ -59,18 +71,10 @@ pipeline {
 
     post {
         success {
-            slackSend (
-                channel: "${env.SLACK_CHANNEL}",
-                message: "✅ Build & Deployment successful: ${env.JOB_NAME} [#${env.BUILD_NUMBER}]",
-                tokenCredentialId: "${env.SLACK_TOKEN_ID}"
-            )
+            slackSend(channel: env.SLACK_CHANNEL, color: 'good', message: "✅ Job *${env.JOB_NAME}* #${env.BUILD_NUMBER} succeeded and deployed to EKS.")
         }
         failure {
-            slackSend (
-                channel: "${env.SLACK_CHANNEL}",
-                message: "❌ Build failed: ${env.JOB_NAME} [#${env.BUILD_NUMBER}]",
-                tokenCredentialId: "${env.SLACK_TOKEN_ID}"
-            )
+            slackSend(channel: env.SLACK_CHANNEL, color: 'danger', message: "❌ Job *${env.JOB_NAME}* #${env.BUILD_NUMBER} failed.")
         }
     }
 }
