@@ -80,7 +80,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     sh """
                         aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-                        kubectl set image deployment/my-app app=${ECR_URI}:${IMAGE_TAG} --record
+                        kubectl set image deployment/my-app aws-dev-hnws4=${ECR_URI}:${IMAGE_TAG}
                         kubectl rollout status deployment/my-app
                     """
                 }
