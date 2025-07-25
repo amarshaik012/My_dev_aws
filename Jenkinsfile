@@ -9,6 +9,7 @@ pipeline {
         IMAGE_TAG = "v1-${BUILD_NUMBER}"
         CLUSTER_NAME = 'my-cluster'
         AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
+        PATH = "/usr/local/bin:$PATH"  // Ensure Jenkins can access AWS CLI
     }
 
     stages {
@@ -33,8 +34,9 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     sh """
+                        aws --version
                         aws ecr get-login-password --region ${AWS_REGION} | \
-                        docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                        docker login --username AWS --password-stdin ${ECR_URI}
                     """
                 }
             }
