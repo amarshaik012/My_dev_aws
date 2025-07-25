@@ -9,13 +9,29 @@ pipeline {
         IMAGE_TAG = "v1-${BUILD_NUMBER}"
         CLUSTER_NAME = 'my-cluster'
         AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
-        PATH = "/usr/local/bin:$PATH"  // Ensure Jenkins can access AWS CLI
+        PATH = "/usr/local/bin:$PATH"
     }
 
     stages {
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/amarshaik012/My_dev_aws.git'
+            }
+        }
+
+        stage('Install AWS CLI (if missing)') {
+            steps {
+                sh '''
+                    if ! command -v aws &> /dev/null
+                    then
+                        echo "Installing AWS CLI..."
+                        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                        unzip -o awscliv2.zip
+                        sudo ./aws/install
+                    else
+                        echo "AWS CLI already installed"
+                    fi
+                '''
             }
         }
 
@@ -34,7 +50,6 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     sh """
-                        aws --version
                         aws ecr get-login-password --region ${AWS_REGION} | \
                         docker login --username AWS --password-stdin ${ECR_URI}
                     """
