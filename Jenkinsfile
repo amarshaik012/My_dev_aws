@@ -34,6 +34,21 @@ pipeline {
             }
         }
 
+        stage('Install kubectl (if missing)') {
+            steps {
+                sh '''
+                    if ! command -v kubectl &> /dev/null; then
+                        echo "Installing kubectl..."
+                        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                        chmod +x kubectl
+                        sudo mv kubectl /usr/local/bin/
+                    else
+                        echo "kubectl already installed"
+                    fi
+                '''
+            }
+        }
+
         stage('Docker Build & Tag') {
             steps {
                 sh """
@@ -65,7 +80,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     sh """
                         aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-                        kubectl set image deployment/my-app app=${ECR_URI}:${IMAGE_TAG}
+                        kubectl set image deployment/my-app app=${ECR_URI}:${IMAGE_TAG} --record
                     """
                 }
             }
