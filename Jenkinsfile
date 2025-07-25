@@ -68,7 +68,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     sh """
                         aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-                        kubectl set image deployment/aws-dev aws-dev=${ECR_URI}:${IMAGE_TAG} --record
+                        kubectl set image deployment/my-app app=669370114932.dkr.ecr.us-east-1.amazonaws.com/aws_dev:${IMAGE_TAG}
                     """
                 }
             }
