@@ -26,7 +26,7 @@ pipeline {
                         echo "Installing AWS CLI..."
                         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
                         unzip -o awscliv2.zip
-                        sudo ./aws/install
+                        sudo ./aws/install || sudo /usr/bin/aws/install
                     else
                         echo "AWS CLI already installed"
                     fi
@@ -81,6 +81,7 @@ pipeline {
                     sh """
                         aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
                         kubectl set image deployment/my-app app=${ECR_URI}:${IMAGE_TAG} --record
+                        kubectl rollout status deployment/my-app
                     """
                 }
             }
@@ -92,7 +93,7 @@ pipeline {
             echo "✅ Deployment succeeded: ${ECR_URI}:${IMAGE_TAG}"
         }
         failure {
-            echo "❌ Deployment failed"
+            echo "❌ Deployment failed. Check Jenkins logs for details."
         }
     }
 }
