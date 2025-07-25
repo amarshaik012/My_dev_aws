@@ -22,8 +22,7 @@ pipeline {
         stage('Install AWS CLI (if missing)') {
             steps {
                 sh '''
-                    if ! command -v aws &> /dev/null
-                    then
+                    if ! command -v aws &> /dev/null; then
                         echo "Installing AWS CLI..."
                         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
                         unzip -o awscliv2.zip
@@ -37,12 +36,10 @@ pipeline {
 
         stage('Docker Build & Tag') {
             steps {
-                script {
-                    sh """
-                        docker build -t ${ECR_REPO_NAME}:latest .
-                        docker tag ${ECR_REPO_NAME}:latest ${ECR_URI}:${IMAGE_TAG}
-                    """
-                }
+                sh """
+                    docker build -t ${ECR_REPO_NAME}:latest .
+                    docker tag ${ECR_REPO_NAME}:latest ${ECR_URI}:${IMAGE_TAG}
+                """
             }
         }
 
@@ -68,7 +65,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     sh """
                         aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
-                        kubectl set image deployment/my-app app=669370114932.dkr.ecr.us-east-1.amazonaws.com/aws_dev:${IMAGE_TAG}
+                        kubectl set image deployment/my-app app=${ECR_URI}:${IMAGE_TAG}
                     """
                 }
             }
