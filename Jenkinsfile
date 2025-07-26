@@ -2,15 +2,16 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'us-east-1'
-        AWS_ACCOUNT_ID = '669370114932'
-        ECR_REPO_NAME = 'aws_dev'
-        ECR_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
-        IMAGE_TAG = "v1-${BUILD_NUMBER}"
-        CLUSTER_NAME = 'my-cluster'
-        AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
-        PATH = "/usr/local/bin:$PATH"
-        SLACK_CHANNEL = '#jenkinbott' // ✅ Correct Slack channel
+        AWS_REGION          = 'us-east-1'
+        AWS_ACCOUNT_ID      = '669370114932'
+        ECR_REPO_NAME       = 'aws_dev'
+        ECR_URI             = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
+        IMAGE_TAG           = "v1-${BUILD_NUMBER}"
+        CLUSTER_NAME        = 'my-cluster'
+        AWS_CREDENTIALS_ID  = 'aws-jenkins-creds'
+        PATH                = "/usr/local/bin:$PATH"
+        SLACK_CHANNEL       = '#jenkins-alerts'              // ✅ Update to your working Slack channel
+        SLACK_CREDENTIAL_ID = 'slack-token'                  // ✅ Use the Secret Text credential ID from Jenkins
     }
 
     stages {
@@ -95,7 +96,8 @@ pipeline {
             slackSend(
                 channel: "${SLACK_CHANNEL}",
                 message: "✅ *Deployment Succeeded*\nImage: `${ECR_URI}:${IMAGE_TAG}`\nJob: `${JOB_NAME}` Build: `${BUILD_NUMBER}`",
-                color: 'good'
+                color: 'good',
+                tokenCredentialId: "${SLACK_CREDENTIAL_ID}"
             )
         }
         failure {
@@ -103,7 +105,8 @@ pipeline {
             slackSend(
                 channel: "${SLACK_CHANNEL}",
                 message: "❌ *Deployment Failed*\nJob: `${JOB_NAME}` Build: `${BUILD_NUMBER}`\nCheck Jenkins logs for more details.",
-                color: 'danger'
+                color: 'danger',
+                tokenCredentialId: "${SLACK_CREDENTIAL_ID}"
             )
         }
     }
