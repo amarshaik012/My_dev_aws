@@ -10,6 +10,7 @@ pipeline {
         CLUSTER_NAME = 'my-cluster'
         AWS_CREDENTIALS_ID = 'aws-jenkins-creds'
         PATH = "/usr/local/bin:$PATH"
+        SLACK_CHANNEL = '#jenkinbott' // ✅ Correct Slack channel
     }
 
     stages {
@@ -91,9 +92,19 @@ pipeline {
     post {
         success {
             echo "✅ Deployment succeeded: ${ECR_URI}:${IMAGE_TAG}"
+            slackSend(
+                channel: "${SLACK_CHANNEL}",
+                message: "✅ *Deployment Succeeded*\nImage: `${ECR_URI}:${IMAGE_TAG}`\nJob: `${JOB_NAME}` Build: `${BUILD_NUMBER}`",
+                color: 'good'
+            )
         }
         failure {
             echo "❌ Deployment failed. Check Jenkins logs for details."
+            slackSend(
+                channel: "${SLACK_CHANNEL}",
+                message: "❌ *Deployment Failed*\nJob: `${JOB_NAME}` Build: `${BUILD_NUMBER}`\nCheck Jenkins logs for more details.",
+                color: 'danger'
+            )
         }
     }
 }
