@@ -105,22 +105,23 @@ pipeline {
         stage('Deploy Monitoring (Prometheus & Grafana)') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                    sh """
-                        aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+                    sh '''
+                        aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
                         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
                         helm repo add grafana https://grafana.github.io/helm-charts || true
                         helm repo update
 
                         if ! helm list -n monitoring | grep -q prometheus; then
-                            echo "🚀 First-time Prometheus install with CRDs..."
+                            echo "🚀 First-time Prometheus install..."
+                            kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/main/charts/kube-prometheus-stack/crds/crd-servicemonitors.yaml || true
+                            kubectl apply -f https://raw.githubusercontent.com/prometheus-community/helm-charts/main/charts/kube-prometheus-stack/crds/crd-prometheusrules.yaml || true
                             helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
                                 --namespace monitoring \
                                 --create-namespace \
-                                --include-crds \
                                 -f monitoring/prometheus-values.yaml
                         else
-                            echo "🔄 Updating existing Prometheus (no CRDs)..."
+                            echo "🔄 Updating existing Prometheus..."
                             helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
                                 --namespace monitoring \
                                 -f monitoring/prometheus-values.yaml
@@ -131,7 +132,7 @@ pipeline {
                             --namespace monitoring \
                             --create-namespace \
                             -f monitoring/grafana-values.yaml
-                    """
+                    '''
                 }
             }
         }
