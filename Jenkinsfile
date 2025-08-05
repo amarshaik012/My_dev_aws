@@ -102,7 +102,7 @@ pipeline {
             }
         }
 
-        stage('Deploy Monitoring') {
+        stage('Deploy Monitoring (Prometheus & Grafana)') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
                     sh """
