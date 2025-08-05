@@ -105,21 +105,31 @@ pipeline {
         stage('Deploy Monitoring') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
-                    sh """
-                        aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+                    sh '''
+                        aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
                         helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
                         helm repo add grafana https://grafana.github.io/helm-charts
                         helm repo update
 
-                        helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
-                            -f monitoring/prometheus-values.yaml \
-                            --namespace monitoring --create-namespace
+                        if ! helm list -n monitoring | grep -q prometheus; then
+                            echo "🚀 First-time install: including CRDs..."
+                            helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+                                --namespace monitoring \
+                                --create-namespace \
+                                --include-crds \
+                                -f monitoring/prometheus-values.yaml
+                        else
+                            echo "🔄 Upgrade without CRDs..."
+                            helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+                                --namespace monitoring \
+                                -f monitoring/prometheus-values.yaml
+                        fi
 
                         helm upgrade --install grafana grafana/grafana \
                             -f monitoring/grafana-values.yaml \
                             --namespace monitoring --create-namespace
-                    """
+                    '''
                 }
             }
         }
