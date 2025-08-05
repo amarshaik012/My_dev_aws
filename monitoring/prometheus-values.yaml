@@ -11,3 +11,9 @@ receivers:
       - channel: '#alerts'
         send_resolved: true
         username: 'AlertManager'
+
+additionalScrapeConfigs:
+  - job_name: 'jenkins'
+    metrics_path: /prometheus
+    static_configs:
+      - targets: ['107.21.49.19:8080']
