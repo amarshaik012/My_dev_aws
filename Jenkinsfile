@@ -10,8 +10,8 @@ pipeline {
         CLUSTER_NAME        = 'my-cluster'
         AWS_CREDENTIALS_ID  = 'aws-jenkins-creds'
         PATH                = "/usr/local/bin:$PATH"
-        SLACK_CHANNEL       = '#jenkins-alerts'              // ✅ Update to your working Slack channel
-        SLACK_CREDENTIAL_ID = 'slack-token'                  // ✅ Use the Secret Text credential ID from Jenkins
+        SLACK_CHANNEL       = '#jenkins-alerts'
+        SLACK_CREDENTIAL_ID = 'slack-token'
     }
 
     stages {
@@ -51,6 +51,19 @@ pipeline {
             }
         }
 
+        stage('Install Helm (if missing)') {
+            steps {
+                sh '''
+                    if ! command -v helm &> /dev/null; then
+                        echo "Installing Helm..."
+                        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+                    else
+                        echo "Helm already installed"
+                    fi
+                '''
+            }
+        }
+
         stage('Docker Build & Tag') {
             steps {
                 sh """
@@ -84,6 +97,28 @@ pipeline {
                         aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
                         kubectl set image deployment/my-app aws-dev-hnws4=${ECR_URI}:${IMAGE_TAG}
                         kubectl rollout status deployment/my-app
+                    """
+                }
+            }
+        }
+
+        stage('Deploy Monitoring') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: "${AWS_CREDENTIALS_ID}"]]) {
+                    sh """
+                        aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}
+
+                        helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+                        helm repo add grafana https://grafana.github.io/helm-charts
+                        helm repo update
+
+                        helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
+                            -f monitoring/prometheus-values.yaml \
+                            --namespace monitoring --create-namespace
+
+                        helm upgrade --install grafana grafana/grafana \
+                            -f monitoring/grafana-values.yaml \
+                            --namespace monitoring --create-namespace
                     """
                 }
             }
