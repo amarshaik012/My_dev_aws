@@ -11,7 +11,7 @@ pipeline {
         AWS_CREDENTIALS_ID  = 'aws-jenkins-creds'
         PATH                = "/usr/local/bin:$PATH"
         SLACK_CHANNEL       = '#jenkins-alerts'
-        SLACK_CREDENTIAL_ID = 'slack-token'
+        SLACK_CREDENTIAL_ID = 'slack_jenkins'
     }
 
     stages {
