@@ -1,10 +1,10 @@
-# 🚀 DevOps Pipeline on AWS
+#  DevOps Pipeline on AWS
 
 This project demonstrates a complete CI/CD pipeline using **Jenkins**, **Docker**, **ECR**, **Terraform**, **EKS**, and monitoring tools like **Prometheus**, **Grafana**, **CloudWatch**, and **Slack** notifications.
 
 ---
 
-## 📌 Project Overview
+##  Project Overview
 
 The goal of this project is to build an automated infrastructure and deployment pipeline that:
 - Triggers on every commit to GitHub.
@@ -16,7 +16,7 @@ The goal of this project is to build an automated infrastructure and deployment 
 
 ---
 
-## 🧰 Tools & Technologies Used
+##  Tools & Technologies Used
 
 | Tool            | Purpose                                  |
 |-----------------|-------------------------------------------|
