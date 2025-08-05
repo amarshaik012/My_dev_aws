@@ -143,17 +143,22 @@ pipeline {
             echo "✅ Deployment succeeded: ${ECR_URI}:${IMAGE_TAG}"
             slackSend(
                 channel: "${SLACK_CHANNEL}",
-                message: "✅ *Deployment Succeeded*\nImage: `${ECR_URI}:${IMAGE_TAG}`\nJob: `${JOB_NAME}` Build: `${BUILD_NUMBER}`",
+                message: "✅ *Deployment Succeeded*\n*Image:* `${ECR_URI}:${IMAGE_TAG}`\n*Job:* `${JOB_NAME}`\n*Build:* `${BUILD_NUMBER}`",
                 color: 'good',
+                teamDomain: 'newworkspace',
+                baseUrl: 'https://slack.com',
                 tokenCredentialId: "${SLACK_CREDENTIAL_ID}"
             )
         }
+
         failure {
-            echo "❌ Deployment failed. Check Jenkins logs for details."
+            echo "❌ Deployment failed."
             slackSend(
                 channel: "${SLACK_CHANNEL}",
-                message: "❌ *Deployment Failed*\nJob: `${JOB_NAME}` Build: `${BUILD_NUMBER}`\nCheck Jenkins logs for more details.",
+                message: "❌ *Deployment Failed*\n*Job:* `${JOB_NAME}`\n*Build:* `${BUILD_NUMBER}`\nCheck Jenkins logs for details.",
                 color: 'danger',
+                teamDomain: 'newworkspace',
+                baseUrl: 'https://slack.com',
                 tokenCredentialId: "${SLACK_CREDENTIAL_ID}"
             )
         }
