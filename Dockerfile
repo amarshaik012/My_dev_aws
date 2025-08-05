@@ -10,4 +10,4 @@ RUN echo "from http.server import SimpleHTTPRequestHandler, HTTPServer" > app.py
 
 EXPOSE 8080
 
-CMD ["python", "app.py"]
+CMD ["python", "-u", "app.py"]
