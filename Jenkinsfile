@@ -145,8 +145,6 @@ pipeline {
                 channel: "${SLACK_CHANNEL}",
                 message: "✅ *Deployment Succeeded*\n*Image:* `${ECR_URI}:${IMAGE_TAG}`\n*Job:* `${JOB_NAME}`\n*Build:* `${BUILD_NUMBER}`",
                 color: 'good',
-                teamDomain: 'newworkspace',
-                baseUrl: 'https://slack.com',
                 tokenCredentialId: "${SLACK_CREDENTIAL_ID}"
             )
         }
@@ -157,8 +155,6 @@ pipeline {
                 channel: "${SLACK_CHANNEL}",
                 message: "❌ *Deployment Failed*\n*Job:* `${JOB_NAME}`\n*Build:* `${BUILD_NUMBER}`\nCheck Jenkins logs for details.",
                 color: 'danger',
-                teamDomain: 'newworkspace',
-                baseUrl: 'https://slack.com',
                 tokenCredentialId: "${SLACK_CREDENTIAL_ID}"
             )
         }
